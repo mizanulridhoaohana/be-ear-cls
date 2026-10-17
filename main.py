@@ -2,6 +2,7 @@ import os
 import cv2
 import numpy as np
 import onnxruntime as ort
+import urllib.request
 from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -22,7 +23,17 @@ CLASS_NAMES = ["hiperemis", "oklusi", "supurasi"]
 MEAN = np.array([0.485, 0.456, 0.406], dtype=np.float32)
 STD = np.array([0.229, 0.224, 0.225], dtype=np.float32)
 
-session = ort.InferenceSession("models/swin_fp16.onnx", providers=["CPUExecutionProvider"])
+MODEL_PATH = "models/swin_fp16.onnx"
+MODEL_URL = os.environ.get("MODEL_URL")
+
+if not MODEL_URL:
+    raise RuntimeError("MODEL_URL environment variable is not set")
+
+if not os.path.exists(MODEL_PATH) or os.path.getsize(MODEL_PATH) < 10_000_000:
+    os.makedirs(os.path.dirname(MODEL_PATH), exist_ok=True)
+    urllib.request.urlretrieve(MODEL_URL, MODEL_PATH)
+
+session = ort.InferenceSession(MODEL_PATH, providers=["CPUExecutionProvider"])
 input_name = session.get_inputs()[0].name
 
 def preprocess_image(bgr):
