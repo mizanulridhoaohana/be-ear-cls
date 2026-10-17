@@ -24,17 +24,20 @@ MEAN = np.array([0.485, 0.456, 0.406], dtype=np.float32)
 STD = np.array([0.229, 0.224, 0.225], dtype=np.float32)
 
 MODEL_PATH = "models/swin_fp16.onnx"
-MODEL_URL = os.environ.get("MODEL_URL")
-
-if not MODEL_URL:
-    raise RuntimeError("MODEL_URL environment variable is not set")
+MODEL_URL = os.environ.get(
+    "MODEL_URL",
+    "https://github.com/mizanulridhoaohana/be-ear-cls/releases/download/asset/swin_fp16.onnx",
+)
 
 if not os.path.exists(MODEL_PATH) or os.path.getsize(MODEL_PATH) < 10_000_000:
-    os.makedirs(os.path.dirname(MODEL_PATH), exist_ok=True)
+    os.makedirs("models", exist_ok=True)
+    print("Mengunduh model...", flush=True)
     urllib.request.urlretrieve(MODEL_URL, MODEL_PATH)
+    print("Ukuran model:", os.path.getsize(MODEL_PATH), flush=True)
 
 session = ort.InferenceSession(MODEL_PATH, providers=["CPUExecutionProvider"])
 input_name = session.get_inputs()[0].name
+
 
 def preprocess_image(bgr):
     gray = cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY)
@@ -53,13 +56,16 @@ def preprocess_image(bgr):
     rgb = (rgb - MEAN) / STD
     return rgb.transpose(2, 0, 1)
 
+
 def softmax(x):
     e = np.exp(x - x.max(axis=1, keepdims=True))
     return e / e.sum(axis=1, keepdims=True)
 
+
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
 
 @app.post("/predict")
 async def predict(file: UploadFile = File(...)):
